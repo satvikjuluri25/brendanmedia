@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brendan Media</title>
+<style>
+:root{--bg:#fff;--fg:#1d1d1f;--mut:#6e6e73;--line:#d2d2d7;--card:#f5f5f7;--blue:#0071e3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--fg:#f5f5f7;--mut:#86868b;--line:#333336;--card:#1d1d1f;--blue:#2997ff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#000;--fg:#f5f5f7;--mut:#86868b;--line:#333336;--card:#1d1d1f;--blue:#2997ff;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 17px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:56px;padding:0 20px}
+.logo{font-weight:600;letter-spacing:-.01em;color:var(--fg);text-decoration:none;font-size:17px}
+.logo{display:flex;align-items:center;gap:9px}.logo svg{flex:none}footer .btn{font-size:13px;padding:6px 14px}
+nav{display:flex;gap:8px}
+.btn{font:inherit;font-size:15px;border:0;border-radius:980px;padding:8px 18px;background:transparent;color:var(--fg);cursor:pointer;text-decoration:none;display:inline-block;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,background .2s;transform-style:preserve-3d;will-change:transform}
+.btn.pri{background:var(--blue);color:#fff}.btn.sec{background:var(--card)}
+nav .btn.on{background:var(--card)}
+@media(hover:hover) and (pointer:fine){.btn:hover,.card:hover,.thumb:hover{transform:perspective(600px) translateZ(14px) scale(1.08) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));box-shadow:0 14px 30px rgba(0,0,0,.22)}.btn.pri:hover{box-shadow:0 14px 30px rgba(0,113,227,.4)}}
+main{flex:1}
+.hero{position:relative;height:calc(100vh - 56px - env(safe-area-inset-top,0px));min-height:420px;background:#000;overflow:hidden}
+.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.4s ease}
+.hero img.on{opacity:1}
+.hero .t{position:absolute;inset:auto 0 12% 0;text-align:center;color:#fff;z-index:2;text-shadow:0 2px 30px rgba(0,0,0,.5);padding:0 20px}
+.hero h1{font-size:clamp(40px,8vw,88px);letter-spacing:-.03em;margin:0;line-height:1.05;font-weight:600}
+.hero p{font-size:clamp(17px,2.4vw,24px);margin:8px 0 22px;opacity:.9}
+.dots{position:absolute;bottom:24px;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:2}
+.dots i{width:7px;height:7px;border-radius:50%;background:#fff6;cursor:pointer}.dots i.on{background:#fff}
+.empty{display:grid;place-items:center;text-align:center;color:var(--mut);padding:80px 20px}
+.wrap{max-width:1200px;margin:0 auto;padding:48px 20px}
+h2{font-size:clamp(32px,5vw,48px);letter-spacing:-.025em;margin:0 0 8px;font-weight:600}
+.sub{color:var(--mut);margin:0 0 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.card{background:var(--card);border-radius:18px;overflow:hidden;cursor:pointer;transition:transform .25s,box-shadow .25s;border:0;padding:0;text-align:left;color:var(--fg);font:inherit}
+.card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}.card .nm{padding:14px 18px;font-weight:600}.card .nm span{display:block;color:var(--mut);font-weight:400;font-size:14px}
+.rows{display:flex;flex-direction:column;gap:6px}.row{display:flex;gap:6px}
+.thumb{display:block;padding:0;border:0;background:var(--card);overflow:hidden;border-radius:6px;cursor:pointer;transition:transform .25s,box-shadow .25s;min-width:0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.back{color:var(--blue);background:none;border:0;font:inherit;cursor:pointer;padding:0;margin-bottom:16px}
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px)}
+.lb.on{display:flex}.lb .im{flex:1;min-height:0;width:100%;display:grid;place-items:center;padding:16px 0}
+.lb img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+.lb .bar{display:flex;gap:10px;padding:14px 0 18px;align-items:center;color:#fff}.lb .bar span{margin-right:10px;font-size:14px;opacity:.8;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .x,.lb .nv{position:absolute;background:#ffffff22;color:#fff;border:0;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer}
+.lb .x{top:calc(env(safe-area-inset-top,0px) + 14px);right:14px}.lb .nv{top:50%}.lb .l{left:12px}.lb .r{right:12px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:980px;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .3s}.toast.on{opacity:1}
+footer{border-top:1px solid var(--line);padding:22px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:var(--mut);font-size:13px}
+footer a{color:var(--mut);text-decoration:none}footer a:hover{color:var(--fg)}
+.form{max-width:520px;display:grid;gap:12px}
+input,textarea{font:inherit;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--fg);width:100%}
+input:focus,textarea:focus{outline:2px solid var(--blue);border-color:transparent}
+.adm{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:24px 0}
+.adm .btn{padding:34px 20px;border-radius:20px;font-size:19px;font-weight:600;background:var(--card)}
+.ti{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.ti div{position:relative}.ti img{width:100px;height:80px;object-fit:cover;border-radius:10px;display:block}
+.ti b{position:absolute;top:-6px;right:-6px;background:#ff3b30;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;cursor:pointer;font-size:14px}
+.li{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}
+.msg{color:var(--mut);font-size:14px;min-height:20px;margin:8px 0}.hide{display:none!important}
+@media(max-width:600px){header{padding:0 10px;grid-template-columns:auto 1fr auto}.logo span{display:none}nav{justify-self:center}.wrap{padding:32px 12px}}
+.bm{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.bm.on{display:flex}
+.bmbar{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:56px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+.bmbar b{font-weight:600}
+.bmback{justify-self:start;display:flex;align-items:center;gap:4px;background:var(--card);color:var(--fg);border:0;border-radius:980px;padding:8px 16px 8px 12px;font:inherit;font-size:15px;cursor:pointer}
+.bmbar a{justify-self:end;color:var(--mut);font-size:14px;text-decoration:none}.bmbar a:hover{color:var(--fg)}
+.bmwrap{position:relative;flex:1;min-height:0}
+.bmload{position:absolute;inset:0;display:grid;place-items:center;color:var(--mut)}
+.bm iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent}
+body.bmopen{overflow:hidden}
+</style></head><body>
+<header><a class="logo" href="#home" aria-label="Brendan Media"><svg viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="16" r="13.5"/><path d="M16 2.5l6.8 11.8M29.5 16H15.9M25.5 27.5l-6.8-11.8M16 29.5l-6.8-11.8M2.5 16h13.6M6.5 4.5l6.8 11.8"/><circle cx="16" cy="16" r="3.2" fill="currentColor" stroke="none"/></svg><span>Brendan Media</span></a>
+<nav><a class="btn" href="#gallery" id="n-gallery">Gallery</a><a class="btn" href="#book" id="n-book">Book Me</a></nav><span></span></header>
+<main id="app"></main>
+<div class="lb" id="lb"><button class="x" id="lx">✕</button><button class="nv l" id="lp">‹</button><button class="nv r" id="ln">›</button><div class="im"><img id="li" alt=""></div>
+<div class="bar"><span id="lt"></span><button class="btn pri" id="ld">Download</button><button class="btn sec" id="ls" style="color:#fff;background:#ffffff22">Share</button></div></div>
+<div class="toast" id="toast"></div>
+<div class="bm" id="bmBook" role="dialog" aria-modal="true" aria-label="Book Me"><div class="bmbar"><button class="bmback" id="bmBack" aria-label="Back">‹ Back</button><b>Book Me</b><a href="https://brendanmedia.setmore.com/brendan" target="_blank" rel="noopener">Open in new tab ↗</a></div><div class="bmwrap"><div class="bmload">Loading…</div><iframe id="bmFrame" title="Book with Brendan Media" allow="payment"></iframe></div></div>
+<footer><a href="https://www.instagram.com/brendan.media" target="_blank" rel="noopener">Instagram · @brendan.media</a>
+<a class="btn sec" href="#admin">Upload</a>
+<a href="https://thecaesarco.com" target="_blank" rel="noopener" style="margin-left:auto">Powered and designed by TheCaesarCo</a></footer>
+<script>
+const $=s=>document.querySelector(s),app=$("#app");
+let db=null,assets=null,dl=null,home={slides:[]},gals=[],admin=false,cur=[],ci=0,timer=null,ready=false;
+try{admin=sessionStorage.getItem("bm_admin")==="1"}catch(e){}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const rid=()=>Math.random().toString(36).slice(2,10);
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");setTimeout(()=>e.classList.remove("on"),2200)}
+const BOOK_URL="https://brendanmedia.setmore.com/brendan";
+function openBook(){const f=$("#bmFrame");if(!f.getAttribute("src"))f.src=BOOK_URL;$("#bmBook").classList.add("on");document.body.classList.add("bmopen")}
+function closeBook(){$("#bmBook").classList.remove("on");document.body.classList.remove("bmopen")}
+$("#bmBack").onclick=closeBook;
+addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#bmBook").classList.contains("on"))closeBook()});
+document.addEventListener("click",e=>{const a=e.target.closest('a[href="#book"]');if(a){e.preventDefault();openBook()}});
+function route(){clearInterval(timer);let h=location.hash.slice(1)||"home";if(h==="book"){history.replaceState(null,"","#home");h="home";openBook()}
+ document.querySelectorAll("nav .btn").forEach(b=>b.classList.remove("on"));
+ if(h.startsWith("p-")){const[,g,p]=h.split("-");return showGal(g,p)}
+ if(h.startsWith("g-"))return showGal(h.slice(2));
+ const m=$("#n-"+h);if(m)m.classList.add("on");
+ ({home:rHome,gallery:rGallery,book:rBook,admin:rAdmin,"admin-home":rAHome,"admin-gal":rAGal})[h]?.();window.scrollTo(0,0)}
+function rHome(){const s=home.slides||[];
+ app.innerHTML=`<section class="hero">${s.length?s.map((x,i)=>`<img src="${x.url}" class="${i?"":"on"}" alt="">`).join(""):""}<div class="t"><h1>Brendan Media</h1><p>Photography</p><a class="btn pri" href="#gallery">View Gallery</a> <a class="btn sec" href="#book" style="background:#ffffff33;color:#fff">Book Me</a></div>${s.length>1?`<div class="dots">${s.map((_,i)=>`<i class="${i?"":"on"}" data-i="${i}"></i>`).join("")}</div>`:""}</section>`;
+ if(!s.length){$(".hero").style.background="linear-gradient(135deg,#1d1d1f,#434347)"}
+ if(s.length>1){let i=0;const go=n=>{const im=app.querySelectorAll(".hero img"),d=app.querySelectorAll(".dots i");im[i].classList.remove("on");d[i].classList.remove("on");i=n%im.length;im[i].classList.add("on");d[i].classList.add("on")};
+  timer=setInterval(()=>go(i+1),5000);app.querySelectorAll(".dots i").forEach(d=>d.onclick=()=>go(+d.dataset.i))}
+ tilt()}
+function rGallery(){
+ app.innerHTML=`<div class="wrap"><h2>Gallery</h2><p class="sub">Select a collection.</p>${gals.length?`<div class="grid">${gals.map(g=>`<button class="card" data-g="${g.id}">${g.photos?.length?`<img src="${g.photos[0].url}" alt="" loading="lazy">`:""}<div class="nm">${esc(g.name)}<span>${g.photos?.length||0} photos</span></div></button>`).join("")}</div>`:`<div class="empty">${ready?"No galleries yet.":"Loading…"}</div>`}</div>`;
+ app.querySelectorAll(".card").forEach(c=>c.onclick=()=>location.hash="g-"+c.dataset.g);tilt()}
+function showGal(id,pid){const g=gals.find(x=>x.id===id);const P=g?.photos||[];
+ document.querySelector("#n-gallery").classList.add("on");
+ if(!g){app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='gallery'">‹ Gallery</button><div class="empty">${ready?"Gallery not found.":"Loading…"}</div></div>`;return}
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='gallery'">‹ Gallery</button><h2>${esc(g.name)}</h2><p class="sub">${P.length} photos</p><div class="rows" id="rows"></div></div>`;
+ const rows=$("#rows"),W=Math.min(innerWidth,1200)-(innerWidth<600?24:40),target=innerWidth<600?2.2:3.6;let r=[],sum=0;
+ const flush=last=>{if(!r.length)return;const d=document.createElement("div");d.className="row";
+  const scale=last&&sum<target*.8?sum/target:1;d.style.width=(scale*100)+"%";
+  r.forEach(p=>{const b=document.createElement("button");b.className="thumb";b.style.flex=(p.w/p.h)+" 1 0";b.style.aspectRatio=p.w/p.h;b.innerHTML=`<img src="${p.url}" loading="lazy" alt="${esc(p.name)}">`;b.onclick=()=>openLb(id,P.indexOf(p));d.appendChild(b)});rows.appendChild(d);r=[];sum=0};
+ P.forEach(p=>{r.push(p);sum+=p.w/p.h;if(sum>=target)flush(false)});flush(true);tilt();
+ if(pid){const i=P.findIndex(p=>p.id===pid);if(i>=0)openLb(id,i,true)}}
+let lbG="";
+function openLb(g,i,keep){lbG=g;cur=gals.find(x=>x.id===g).photos;ci=i;if(!keep)history.replaceState(null,"","#p-"+g+"-"+cur[i].id);paintLb();$("#lb").classList.add("on")}
+function paintLb(){const p=cur[ci];$("#li").src=p.url;$("#lt").textContent=p.name;history.replaceState(null,"","#p-"+lbG+"-"+p.id)}
+function closeLb(){$("#lb").classList.remove("on");history.replaceState(null,"","#g-"+lbG)}
+$("#lx").onclick=closeLb;$("#lp").onclick=()=>{ci=(ci-1+cur.length)%cur.length;paintLb()};$("#ln").onclick=()=>{ci=(ci+1)%cur.length;paintLb()};
+$("#lb").onclick=e=>{if(e.target.classList.contains("im"))closeLb()};
+addEventListener("keydown",e=>{if(!$("#lb").classList.contains("on"))return;if(e.key==="Escape")closeLb();if(e.key==="ArrowLeft")$("#lp").click();if(e.key==="ArrowRight")$("#ln").click()});
+$("#ld").onclick=async()=>{const p=cur[ci];try{const b=await (await fetch(p.url)).blob();const ext=(p.ext||"jpg");
+ if(dl){await dl.save({filename:p.name.replace(/[^\w\- ]/g,"")+"."+ext,data:b})}else toast("Download unavailable here")}catch(e){if(e&&e.code!=="declined")toast("Download unavailable here")}};
+$("#ls").onclick=async()=>{const u=location.href;try{await navigator.clipboard.writeText(u);toast("Photo link copied")}catch(e){prompt("Copy this photo link:",u)}};
+function rBook(){app.innerHTML=`<div class="wrap"><h2>Book Me</h2><p class="sub">Tell me about your shoot and I'll get back to you.</p><div class="form"><input id="bn" placeholder="Name"><input id="bc" placeholder="Email or phone"><input id="bd" placeholder="Date / location"><textarea id="bt" rows="4" placeholder="Details"></textarea><button class="btn pri" id="bs">Send request</button><a class="btn sec" href="https://ig.me/m/brendan.media" target="_blank" rel="noopener" style="text-align:center">Message on Instagram</a><div class="msg" id="bm"></div></div></div>`;
+ $("#bs").onclick=async()=>{const d={name:$("#bn").value.trim(),contact:$("#bc").value.trim(),when:$("#bd").value.trim(),details:$("#bt").value.trim(),at:Date.now()};
+  if(!d.name||!d.contact){$("#bm").textContent="Please add your name and contact.";return}
+  try{await db.collection("bookings").doc(rid()).set(d);$("#bm").textContent="Thank you! Your request was sent.";["bn","bc","bd","bt"].forEach(i=>$("#"+i).value="")}catch(e){$("#bm").textContent="Couldn't send. Please message me on Instagram."}};tilt()}
+function rAdmin(){if(!admin){app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Sign in to manage your site.</p><div class="form"><input id="au" placeholder="User ID" autocapitalize="off"><input id="ap" type="password" placeholder="Password"><button class="btn pri" id="ab">Sign in</button><div class="msg" id="am"></div></div></div>`;
+  const go=()=>{if($("#au").value.trim()==="brendan.media"&&$("#ap").value==="Inka_2026"){admin=true;try{sessionStorage.setItem("bm_admin","1")}catch(e){}rAdmin()}else $("#am").textContent="Incorrect user ID or password."};
+  $("#ab").onclick=go;$("#ap").onkeydown=e=>{if(e.key==="Enter")go()};tilt();return}
+ app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Welcome back, Brendan.</p><div class="adm"><button class="btn" onclick="location.hash='admin-home'">Customize Home Page Photos</button><button class="btn" onclick="location.hash='admin-gal'">Upload Gallery</button></div><button class="btn sec" id="out">Sign out</button><div id="bk"></div></div>`;
+ $("#out").onclick=()=>{admin=false;try{sessionStorage.removeItem("bm_admin")}catch(e){}location.hash="home"};tilt();
+ db?.collection("bookings").get().then(s=>{if(!s.size)return;$("#bk").innerHTML="<h2 style='font-size:28px;margin-top:40px'>Booking requests</h2>"+s.docs.map(d=>d.data()).sort((a,b)=>b.at-a.at).map(b=>`<div class="li"><div><b>${esc(b.name)}</b> · ${esc(b.contact)}<br><span style="color:var(--mut)">${esc(b.when||"")} ${esc(b.details||"")}</span></div></div>`).join("")}).catch(()=>{})}
+function guard(){if(!admin){location.hash="admin";return false}if(!assets||!db){app.innerHTML=`<div class="wrap"><div class="empty">Uploads need editor access. Open this page from your Claude account to manage content.</div></div>`;return false}return true}
+function dims(f){return new Promise(r=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{r({w:i.naturalWidth,h:i.naturalHeight});URL.revokeObjectURL(u)};i.onerror=()=>r({w:3,h:2});i.src=u})}
+async function up(files,msg){const out=[];let n=0;for(const f of files){n++;msg.textContent=`Uploading ${n} of ${files.length} (full resolution)…`;
+  try{const a=await assets.upload(f),d=await dims(f);out.push({id:a.id,url:a.url,w:d.w,h:d.h,name:f.name.replace(/\.[^.]+$/,""),ext:(f.name.split(".").pop()||"jpg").toLowerCase()})}catch(e){msg.textContent="Failed on "+f.name+": "+(e.message||e.code||"error");return out}}
+ msg.textContent="Done.";return out}
+function rAHome(){if(!guard())return;const s=home.slides||[];
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Home page slideshow</h2><p class="sub">Upload one or more photos. They fade in order.</p><div class="ti">${s.map((x,i)=>`<div><img src="${x.url}" alt=""><b data-i="${i}">×</b></div>`).join("")}</div><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div></div>`;
+ app.querySelectorAll(".ti b").forEach(b=>b.onclick=async()=>{const n=s.filter((_,i)=>i!==+b.dataset.i);await db.doc("site/home").set({slides:n})});
+ $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"));if(r.length)await db.doc("site/home").set({slides:[...s,...r.map(x=>({id:x.id,url:x.url}))]})}}
+function rAGal(){if(!guard())return;
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Upload gallery</h2><p class="sub">Name your gallery, then add photos.</p><div class="form"><input id="gn" placeholder="Gallery name"><button class="btn pri" id="gc">Continue to upload</button></div><div id="up"></div><h2 style="font-size:26px;margin-top:48px">Your galleries</h2>${gals.map(g=>`<div class="li"><span>${esc(g.name)} · ${g.photos?.length||0}</span><span><button class="btn sec" data-a="${g.id}">Add photos</button> <button class="btn sec" data-d="${g.id}">Delete</button></span></div>`).join("")||"<p class='sub'>None yet.</p>"}</div>`;
+ const pick=(id,name)=>{$("#up").innerHTML=`<p style="margin-top:24px"><b>${esc(name)}</b></p><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div>`;
+  $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"));if(r.length){const g=gals.find(x=>x.id===id);await db.doc("galleries/"+id).set({name,photos:[...(g?.photos||[]),...r],at:g?.at||Date.now()})}}};
+ $("#gc").onclick=()=>{const n=$("#gn").value.trim();if(!n)return;pick(rid(),n)};
+ app.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const g=gals.find(x=>x.id===b.dataset.a);pick(g.id,g.name)});
+ app.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{if(confirm("Delete this gallery?"))db.doc("galleries/"+b.dataset.d).delete()});tilt()}
+function tilt(){if(!matchMedia("(hover:hover) and (pointer:fine)").matches)return;
+ document.querySelectorAll(".btn,.card,.thumb").forEach(el=>{if(el._t)return;el._t=1;el.addEventListener("mousemove",e=>{const r=el.getBoundingClientRect();el.style.setProperty("--ry",((e.clientX-r.left)/r.width-.5)*10+"deg");el.style.setProperty("--rx",(.5-(e.clientY-r.top)/r.height)*10+"deg")});el.addEventListener("mouseleave",()=>{el.style.setProperty("--rx","0deg");el.style.setProperty("--ry","0deg")})})}
+addEventListener("hashchange",()=>{if($("#lb").classList.contains("on")&&!location.hash.startsWith("#p-"))$("#lb").classList.remove("on");route()});
+route();
+(async()=>{try{[db,assets,dl]=await Promise.all([claude.use("db"),claude.use("assets"),claude.use("downloads")])}catch(e){}
+ if(!db){ready=true;route();return}
+ const t=setTimeout(()=>{ready=true;route()},10000);
+ db.doc("site/home").onSnapshot(s=>{home=s.data()||{slides:[]};if(/^(#home)?$/.test(location.hash))route();else if(location.hash==="#admin-home")route()},()=>{});
+ db.collection("galleries").onSnapshot(s=>{clearTimeout(t);ready=true;gals=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.at||0)-(b.at||0));
+  const h=location.hash;if(!$("#lb").classList.contains("on")&&/^#(gallery|g-|p-|admin-gal)/.test(h)&&!document.activeElement?.type)route()},()=>{ready=true;route()})})();
+</script></body></html>
