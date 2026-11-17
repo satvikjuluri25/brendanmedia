@@ -46,6 +46,15 @@ h2{font-size:clamp(32px,5vw,48px);letter-spacing:-.025em;margin:0 0 8px;font-wei
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#333;color:#fff;padding:10px 18px;border-radius:980px;font-size:14px;z-index:60;opacity:0;pointer-events:none;transition:opacity .3s}.toast.on{opacity:1}
 footer{border-top:1px solid var(--line);padding:22px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;color:var(--mut);font-size:13px}
 footer a{color:var(--mut);text-decoration:none}footer a:hover{color:var(--fg)}
+.form{max-width:520px;display:grid;gap:12px}
+input{font:inherit;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--fg);width:100%}
+input:focus{outline:2px solid var(--blue);border-color:transparent}input[type=file]{padding:10px}
+.adm{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:24px 0}
+.adm .btn{padding:34px 20px;border-radius:20px;font-size:19px;font-weight:600;background:var(--card)}
+.ti{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.ti div{position:relative}.ti img{width:100px;height:80px;object-fit:cover;border-radius:10px;display:block}
+.ti b{position:absolute;top:-6px;right:-6px;background:#ff3b30;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;cursor:pointer;font-size:14px}
+.li{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}
+.msg{color:var(--mut);font-size:14px;min-height:20px;margin:8px 0}.hide{display:none!important}
 @media(max-width:600px){header{padding:0 10px;grid-template-columns:auto 1fr auto}.logo span{display:none}nav{justify-self:center}.wrap{padding:32px 12px}}
 .bm{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .bm.on{display:flex}
@@ -62,19 +71,52 @@ body.bmopen{overflow:hidden}
 <nav><a class="btn" href="#gallery" id="n-gallery">Gallery</a><a class="btn" href="#book" id="n-book">Book Me</a></nav><span></span></header>
 <main id="app"></main>
 <div class="lb" id="lb"><button class="x" id="lx">✕</button><button class="nv l" id="lp">‹</button><button class="nv r" id="ln">›</button><div class="im"><img id="li" alt=""></div>
-<div class="bar"><span id="lt"></span><button class="btn pri" id="ld">Download</button><button class="btn sec" id="ls" style="color:#fff;background:#ffffff22">Share</button></div></div>
+<div class="bar"><span id="lt"></span><button class="btn pri" id="ld">Download</button><button class="btn sec hide" id="lde" style="color:#fff;background:#ff3b3066">Delete</button><button class="btn sec" id="ls" style="color:#fff;background:#ffffff22">Share</button></div></div>
 <div class="toast" id="toast"></div>
 <div class="bm" id="bmBook" role="dialog" aria-modal="true" aria-label="Book Me"><div class="bmbar"><button class="bmback" id="bmBack" aria-label="Back">‹ Back</button><b>Book Me</b><a href="https://brendanmedia.setmore.com/brendan" target="_blank" rel="noopener">Open in new tab ↗</a></div><div class="bmwrap"><div class="bmload">Loading…</div><iframe id="bmFrame" title="Book with Brendan Media" allow="payment"></iframe></div></div>
 <footer><a href="https://www.instagram.com/brendan.media" target="_blank" rel="noopener">Instagram · @brendan.media</a>
-<a class="btn sec" href="https://github.com/satvikjuluri25/brendanmedia/upload/main/photos" target="_blank" rel="noopener">Upload</a>
+<a class="btn sec" href="#admin">Upload</a>
 <a href="https://thecaesarco.com" target="_blank" rel="noopener" style="margin-left:auto">Powered and designed by TheCaesarCo</a></footer>
 <script>
-/* Photos are read from the "photos" folder of this GitHub repo.
+/* Photos live in the "photos" folder of this GitHub repo.
    photos/home/        -> home page slideshow
-   photos/<Name>/      -> one gallery per folder (folder name = gallery name) */
+   photos/<Name>/      -> one gallery per folder (folder name = gallery name)
+   The Upload page saves photos into that folder using a GitHub access token. */
 const CFG={user:"satvikjuluri25",repo:"brendanmedia"};
 const $=s=>document.querySelector(s),app=$("#app");
-let home=[],gals=[],cur=[],ci=0,timer=null,ready=false,failed=false,lbG="";
+let token="";try{token=localStorage.getItem("bm_gh")||""}catch(e){}
+let admin=!!token,home=[],gals=[],cur=[],ci=0,timer=null,ready=false,failed=false,lbG="";
+const clean=n=>n.replace(/[\/\\?#%:*"<>|]/g,"").trim();
+function signOut(){token="";admin=false;try{localStorage.removeItem("bm_gh")}catch(e){}}
+function errMsg(e){if(e.status===401){signOut();return"Your token isn't valid or expired. Please sign in again."}
+ if(e.status===403)return"That token can't edit this site (it needs Contents: Read and write).";
+ if(e.status===404)return"Site repository not found, or the token has no access to it.";return e.message||"Something went wrong."}
+async function gh(method,path,body){
+ for(let t=0;;t++){
+  const r=await fetch("https://api.github.com/repos/"+CFG.user+"/"+CFG.repo+path,{method,headers:Object.assign({Accept:"application/vnd.github+json"},token?{Authorization:"Bearer "+token}:{},body?{"Content-Type":"application/json"}:{}),body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok)return j;
+  if(r.status===409&&t<3){await new Promise(x=>setTimeout(x,900*(t+1)));continue}
+  const e=new Error(j.message||("Error "+r.status));e.status=r.status;throw e}}
+const encP=p=>p.split("/").map(encodeURIComponent).join("/");
+const del=p=>gh("DELETE","/contents/"+encP(p.path),{message:"Delete photo",sha:p.sha});
+const toB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=()=>rej(new Error("Couldn't read the file"));r.readAsDataURL(b)});
+async function toJpeg(f){try{const bm=await createImageBitmap(f),c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;c.getContext("2d").drawImage(bm,0,0);
+ return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(),"image/jpeg",.95))}catch(e){throw new Error("This browser can't read HEIC photos. Export it as JPG first.")}}
+async function put(folder,name,b64){
+ for(let t=0;t<4;t++){
+  try{return await gh("PUT","/contents/"+encP("photos/"+folder+"/"+name),{message:"Add photo",content:b64})}
+  catch(e){if(e.status===422){name=name.replace(/(\.[^.]+)$/,"-"+Date.now().toString(36)+"$1");continue}throw e}}
+ throw new Error("Upload failed")}
+async function upTo(folder,files,msg){let ok=0,n=0;
+ for(const f of files){n++;msg.textContent="Uploading "+n+" of "+files.length+"…";
+  try{let blob=f,name=f.name;
+   if(/\.(heic|heif)$/i.test(name)||/hei[cf]/i.test(f.type)){blob=await toJpeg(f);name=name.replace(/\.[^.]+$/,"")+".jpg"}
+   name=name.replace(/[^\w.\- ]/g,"_");
+   if(!/\.(jpe?g|png|webp|gif|avif)$/i.test(name))continue;
+   await put(folder,name,await toB64(blob));ok++}
+  catch(e){msg.textContent="Failed on "+f.name+": "+errMsg(e);return ok}}
+ msg.textContent="Done. "+ok+" photo"+(ok===1?"":"s")+" uploaded.";return ok}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const RAW=p=>"https://raw.githubusercontent.com/"+CFG.user+"/"+CFG.repo+"/HEAD/"+p.split("/").map(encodeURIComponent).join("/");
 const IMG=(u,w)=>"https://wsrv.nl/?url="+encodeURIComponent(u)+"&w="+w+"&we&q=82";
@@ -86,18 +128,19 @@ function closeBook(){$("#bmBook").classList.remove("on");document.body.classList
 $("#bmBack").onclick=closeBook;
 addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#bmBook").classList.contains("on"))closeBook()});
 document.addEventListener("click",e=>{const a=e.target.closest('a[href="#book"]');if(a){e.preventDefault();openBook()}});
-async function load(){
+async function load(fresh){
  try{
-  const r=await fetch("https://api.github.com/repos/"+CFG.user+"/"+CFG.repo+"/git/trees/HEAD?recursive=1");
-  if(!r.ok)throw 0;
-  const j=await r.json(),g={};
+  const u="/git/trees/HEAD?recursive=1"+(fresh?"&t="+Date.now():"");let j;
+  try{j=await gh("GET",u)}catch(e){if(e.status===401&&token){signOut();j=await gh("GET",u)}else throw e}
+  const g={};
   j.tree.forEach(x=>{if(x.type!=="blob")return;
    const m=x.path.match(/^photos\/([^\/]+)\/(?:.*\/)?([^\/]+)\.(jpe?g|png|webp|gif|avif)$/i);if(!m)return;
-   (g[m[1]]=g[m[1]]||[]).push({path:x.path,raw:RAW(x.path),name:m[2],ext:m[3].toLowerCase()})});
+   (g[m[1]]=g[m[1]]||[]).push({path:x.path,sha:x.sha,raw:RAW(x.path),name:m[2],ext:m[3].toLowerCase()})});
   Object.values(g).forEach(a=>a.sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true})));
   const hk=Object.keys(g).find(k=>k.toLowerCase()==="home");
   home=hk?g[hk]:[];
   gals=Object.keys(g).filter(k=>k!==hk).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(k=>({id:k.toLowerCase().replace(/[^a-z0-9]+/g,"_"),name:k,photos:g[k]}));
+  failed=false
  }catch(e){failed=true}
  ready=true}
 function route(){clearInterval(timer);let h=location.hash.slice(1)||"home";if(h==="book"){history.replaceState(null,"","#home");h="home";openBook()}
@@ -105,7 +148,7 @@ function route(){clearInterval(timer);let h=location.hash.slice(1)||"home";if(h=
  if(h.startsWith("p-")){const[,g,p]=h.split("-");return showGal(g,+p)}
  if(h.startsWith("g-"))return showGal(h.slice(2));
  const m=$("#n-"+h);if(m)m.classList.add("on");
- (({home:rHome,gallery:rGallery})[h]||rHome)();window.scrollTo(0,0)}
+ (({home:rHome,gallery:rGallery,admin:rAdmin,"admin-home":rAHome,"admin-gal":rAGal})[h]||rHome)();window.scrollTo(0,0)}
 function rHome(){const s=home;
  app.innerHTML=`<section class="hero">${s.map((p,i)=>im(p,2400,i?"":"on",false)).join("")}<div class="t"><h1>Brendan Media</h1><p>Photography</p><a class="btn pri" href="#gallery">View Gallery</a> <a class="btn sec" href="#book" style="background:#ffffff33;color:#fff">Book Me</a></div>${s.length>1?`<div class="dots">${s.map((_,i)=>`<i class="${i?"":"on"}" data-i="${i}"></i>`).join("")}</div>`:""}</section>`;
  if(!s.length){$(".hero").style.background="linear-gradient(135deg,#1d1d1f,#434347)"}
@@ -116,6 +159,34 @@ function rGallery(){
  const msg=failed?"Couldn't load photos. Please refresh the page.":ready?"No galleries yet.":"Loading…";
  app.innerHTML=`<div class="wrap"><h2>Gallery</h2><p class="sub">Select a collection.</p>${gals.length?`<div class="grid">${gals.map(g=>`<button class="card" data-g="${g.id}">${im(g.photos[0],900,"",true)}<div class="nm">${esc(g.name)}<span>${g.photos.length} photos</span></div></button>`).join("")}</div>`:`<div class="empty">${msg}</div>`}</div>`;
  app.querySelectorAll(".card").forEach(c=>c.onclick=()=>location.hash="g-"+c.dataset.g);tilt()}
+function rAdmin(){
+ if(!admin){app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Paste your GitHub access token to manage photos.</p><div class="form"><input id="at" type="password" placeholder="GitHub token (github_pat_…)" autocomplete="off" autocapitalize="off"><button class="btn pri" id="ab">Sign in</button><div class="msg" id="am"></div><a style="font-size:14px;color:var(--blue)" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a token on GitHub ↗</a></div></div>`;
+  const go=async()=>{const t=$("#at").value.trim();if(!t)return;$("#am").textContent="Checking…";token=t;
+   try{const j=await gh("GET","");if(j.permissions&&!j.permissions.push)throw new Error("That token can't edit this site.");
+    try{localStorage.setItem("bm_gh",t)}catch(e){}admin=true;await load(true);rAdmin()}
+   catch(e){const m=errMsg(e);signOut();$("#am").textContent=e.status===401?"That token isn't valid.":m}};
+  $("#ab").onclick=go;$("#at").onkeydown=e=>{if(e.key==="Enter")go()};tilt();return}
+ app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Welcome back, Brendan.</p><div class="adm"><button class="btn" onclick="location.hash='admin-home'">Customize Home Page Photos</button><button class="btn" onclick="location.hash='admin-gal'">Upload Gallery</button></div><button class="btn sec" id="out">Sign out</button></div>`;
+ $("#out").onclick=()=>{signOut();location.hash="home"};tilt()}
+function guard(){if(!admin){location.hash="admin";return false}return true}
+function rAHome(){if(!guard())return;
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Home page slideshow</h2><p class="sub">Upload one or more photos. They fade in order.</p><div class="ti" id="ti"></div><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div></div>`;
+ const paint=()=>{const t=$("#ti");if(!t)return;t.innerHTML=home.map((p,i)=>`<div>${im(p,300,"",true)}<b data-i="${i}">×</b></div>`).join("");
+  t.querySelectorAll("b").forEach(b=>b.onclick=async()=>{const p=home[+b.dataset.i];if(!confirm("Remove this photo from the slideshow?"))return;$("#m").textContent="Removing…";
+   try{await del(p);await load(true);paint();$("#m").textContent="Removed."}catch(e){$("#m").textContent=errMsg(e)}})};
+ paint();
+ $("#f").onchange=async e=>{const files=[...e.target.files];await upTo("home",files,$("#m"));await load(true);paint();e.target.value=""}}
+function rAGal(){if(!guard())return;
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Upload gallery</h2><p class="sub">Name your gallery, then add photos.</p><div class="form"><input id="gn" placeholder="Gallery name"><button class="btn pri" id="gc">Continue to upload</button></div><div id="up"></div><h2 style="font-size:26px;margin-top:48px">Your galleries</h2><div id="gl"></div></div>`;
+ const pick=name=>{$("#up").innerHTML=`<p style="margin-top:24px"><b>${esc(name)}</b></p><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div>`;
+  $("#f").onchange=async e=>{const files=[...e.target.files];await upTo(name,files,$("#m"));await load(true);list();e.target.value=""}};
+ const list=()=>{const l=$("#gl");if(!l)return;
+  l.innerHTML=gals.map((g,i)=>`<div class="li"><span>${esc(g.name)} · ${g.photos.length}</span><span><button class="btn sec" data-a="${i}">Add photos</button> <button class="btn sec" data-d="${i}">Delete</button></span></div>`).join("")||"<p class='sub'>None yet.</p>";
+  l.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>pick(gals[+b.dataset.a].name));
+  l.querySelectorAll("[data-d]").forEach(b=>b.onclick=async()=>{const g=gals[+b.dataset.d];if(!confirm('Delete "'+g.name+'" and all its photos?'))return;let n=0;
+   try{for(const p of g.photos){n++;toast("Deleting "+n+" of "+g.photos.length+"…");await del(p)}await load(true);list();toast("Gallery deleted")}catch(e){toast(errMsg(e))}})};
+ list();
+ $("#gc").onclick=()=>{const n=clean($("#gn").value);if(!n)return;if(n.toLowerCase()==="home"){toast("Please pick a different name");return}pick(n)};tilt()}
 function showGal(id,pid){const g=gals.find(x=>x.id===id);const P=g?g.photos:[];
  document.querySelector("#n-gallery").classList.add("on");
  if(!g){app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='gallery'">‹ Gallery</button><div class="empty">${ready?"Gallery not found.":"Loading…"}</div></div>`;return}
@@ -124,13 +195,15 @@ function showGal(id,pid){const g=gals.find(x=>x.id===id);const P=g?g.photos:[];
  P.forEach((p,i)=>{const b=document.createElement("button");b.className="thumb";b.innerHTML=im(p,1200,"",true);b.onclick=()=>openLb(id,i);cols.appendChild(b)});
  tilt();
  if(pid!=null&&!isNaN(pid)&&P[pid])openLb(id,pid,true)}
-function openLb(g,i,keep){lbG=g;cur=gals.find(x=>x.id===g).photos;ci=i;paintLb();$("#lb").classList.add("on")}
+function openLb(g,i,keep){$("#lde").classList.toggle("hide",!admin);lbG=g;cur=gals.find(x=>x.id===g).photos;ci=i;paintLb();$("#lb").classList.add("on")}
 function paintLb(){const p=cur[ci],l=$("#li");l.onerror=()=>{l.onerror=null;l.src=p.raw};l.src=IMG(p.raw,2400);$("#lt").textContent=p.name;history.replaceState(null,"","#p-"+lbG+"-"+ci)}
 function closeLb(){$("#lb").classList.remove("on");history.replaceState(null,"","#g-"+lbG)}
 $("#lx").onclick=closeLb;$("#lp").onclick=()=>{ci=(ci-1+cur.length)%cur.length;paintLb()};$("#ln").onclick=()=>{ci=(ci+1)%cur.length;paintLb()};
 $("#lb").onclick=e=>{if(e.target.classList.contains("im"))closeLb()};
 addEventListener("keydown",e=>{if(!$("#lb").classList.contains("on"))return;if(e.key==="Escape")closeLb();if(e.key==="ArrowLeft")$("#lp").click();if(e.key==="ArrowRight")$("#ln").click()});
 $("#ld").onclick=async()=>{const p=cur[ci];try{const b=await (await fetch(p.raw)).blob(),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=p.name+"."+p.ext;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}catch(e){window.open(p.raw,"_blank")}};
+$("#lde").onclick=async()=>{const p=cur[ci];if(!admin||!confirm("Delete this photo from the site?"))return;
+ try{toast("Deleting…");await del(p);await load(true);closeLb();route()}catch(e){toast(errMsg(e))}};
 $("#ls").onclick=async()=>{const u=location.href;try{await navigator.clipboard.writeText(u);toast("Photo link copied")}catch(e){prompt("Copy this photo link:",u)}};
 function tilt(){if(!matchMedia("(hover:hover) and (pointer:fine)").matches)return;
  document.querySelectorAll(".btn,.card,.thumb").forEach(el=>{if(el._t)return;el._t=1;el.addEventListener("mousemove",e=>{const r=el.getBoundingClientRect();el.style.setProperty("--ry",((e.clientX-r.left)/r.width-.5)*10+"deg");el.style.setProperty("--rx",(.5-(e.clientY-r.top)/r.height)*10+"deg")});el.addEventListener("mouseleave",()=>{el.style.setProperty("--rx","0deg");el.style.setProperty("--ry","0deg")})})}
