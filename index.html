@@ -79,19 +79,25 @@ let db=null,assets=null,dl=null,home={slides:[]},gals=[],admin=false,cur=[],ci=0
 try{admin=sessionStorage.getItem("bm_admin")==="1"}catch(e){}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const rid=()=>Math.random().toString(36).slice(2,10);
-const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open("bm",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
-async function kvGet(k){try{const d=await idb();return await new Promise(ok=>{const q=d.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok()})}catch(e){}}
-async function kvSet(k,v){const d=await idb();return new Promise((ok,no)=>{const t=d.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=ok;t.onerror=()=>no(t.error)})}
-const shared=()=>db&&assets;
-const strip=p=>{const{blob,...x}=p;return x};
-async function setHome(slides){if(shared())return db.doc("site/home").set({slides:slides.map(strip)});
- home={slides};await kvSet("home",{slides:slides.map(x=>({...x,url:undefined}))});route()}
-async function saveGal(id,o){if(shared())return db.doc("galleries/"+id).set({...o,photos:o.photos.map(strip)});
- const i=gals.findIndex(x=>x.id===id),g={id,...o};if(i<0)gals.push(g);else gals[i]=g;await kvSet("gals",gals.map(g=>({...g,photos:g.photos.map(p=>({...p,url:undefined}))})));route()}
-async function delGal(id){if(shared())return db.doc("galleries/"+id).delete();gals=gals.filter(x=>x.id!==id);await kvSet("gals",gals.map(g=>({...g,photos:g.photos.map(p=>({...p,url:undefined}))})));route()}
-async function loadLocal(){const h=await kvGet("home"),g=await kvGet("gals");
- home=h||{slides:[]};home.slides.forEach(x=>x.url=URL.createObjectURL(x.blob));
- gals=(g||[]).map(x=>({...x,photos:x.photos.map(p=>({...p,url:URL.createObjectURL(p.blob)}))}));ready=true;route()}
+const CLOUD="pl9amsir",PRESET="brendanmedia",CDN=`https://res.cloudinary.com/${CLOUD}/image`;
+let lerr="";
+const nice=t=>t.replace(/_/g," ");
+function mk(r){const pid=r.public_id,pt=pid.split("/"),id=pt[pt.length-1],g=pt[0]==="bm"&&pt[1]==="gal"?pt[2]:"",e=`v${r.version}/${pid}.${r.format}`,u=CDN+"/upload";
+ return{id,pid,g,w:r.width||3,h:r.height||2,t:Date.parse(r.created_at)||0,name:g?nice(g):"",ext:r.format,url:`${u}/c_limit,w_2200,q_auto,f_auto/${e}`,th:`${u}/c_limit,w_700,q_auto,f_auto/${e}`,orig:`${u}/${e}`}}
+function build(list){const m={};list.forEach(p=>{(m[p.g]=m[p.g]||{id:p.g,name:p.name,photos:[]}).photos.push(p)});
+ gals=Object.values(m).map(g=>{g.photos.sort((a,b)=>a.t-b.t);g.at=g.photos[0].t;return g}).sort((a,b)=>a.at-b.at)}
+async function lst(tag){const r=await fetch(`${CDN}/list/${tag}.json`);if(r.status===404)return[];if(!r.ok)throw new Error("list "+r.status);return(await r.json()).resources.map(mk)}
+async function load(){lerr="";try{const[h,g]=await Promise.all([lst("bm_home"),lst("bm_all")]);home={slides:h.sort((a,b)=>a.t-b.t)};build(g)}
+ catch(e){lerr="Couldn't load photos. In Cloudinary go to Settings → Security and turn off the “Resource list” restriction."}
+ ready=true;route()}
+async function shrink(f){try{const b=await createImageBitmap(f,{imageOrientation:"from-image"}),k=Math.min(1,3000/Math.max(b.width,b.height));
+ if(k===1&&f.size<8e6)return f;const c=document.createElement("canvas");c.width=Math.round(b.width*k);c.height=Math.round(b.height*k);c.getContext("2d").drawImage(b,0,0,c.width,c.height);
+ return(await new Promise(r=>c.toBlob(r,"image/jpeg",.9)))||f}catch(e){return f}}
+async function up(files,msg,dir,tag){const out=[],N=files.length;let n=0,fail=0,i=0,err="";
+ const w=async()=>{while(i<N){const f=files[i++];try{const b=await shrink(f),fd=new FormData();fd.append("file",b);fd.append("upload_preset",PRESET);fd.append("public_id",dir+"/"+rid()+rid());fd.append("tags",tag);
+  const r=await fetch("https://api.cloudinary.com/v1_1/"+CLOUD+"/image/upload",{method:"POST",body:fd}),j=await r.json();if(!r.ok)throw new Error(j.error?.message||r.status);out.push(mk(j))}catch(e){fail++;err=e.message}
+  n++;msg.textContent=`Uploaded ${n-fail} of ${N}`+(fail?` (${fail} failed: ${err})`:"")}};
+ await Promise.all([w(),w(),w()]);msg.textContent=`Done. ${out.length} uploaded`+(fail?`, ${fail} failed: ${err}`:".");return out}
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");setTimeout(()=>e.classList.remove("on"),2200)}
 function route(){clearInterval(timer);const h=location.hash.slice(1)||"home";
  document.querySelectorAll("nav .btn").forEach(b=>b.classList.remove("on"));
@@ -106,7 +112,7 @@ function rHome(){const s=home.slides||[];
   timer=setInterval(()=>go(i+1),5000);app.querySelectorAll(".dots i").forEach(d=>d.onclick=()=>go(+d.dataset.i))}
  tilt()}
 function rGallery(){
- app.innerHTML=`<div class="wrap"><h2>Gallery</h2><p class="sub">Select a collection.</p>${gals.length?`<div class="grid">${gals.map(g=>`<button class="card" data-g="${g.id}">${g.photos?.length?`<img src="${g.photos[0].url}" alt="" loading="lazy">`:""}<div class="nm">${esc(g.name)}<span>${g.photos?.length||0} photos</span></div></button>`).join("")}</div>`:`<div class="empty">${ready?"No galleries yet.":"Loading…"}</div>`}</div>`;
+ app.innerHTML=`<div class="wrap"><h2>Gallery</h2><p class="sub">Select a collection.</p>${gals.length?`<div class="grid">${gals.map(g=>`<button class="card" data-g="${g.id}">${g.photos?.length?`<img src="${g.photos[0].th}" alt="" loading="lazy">`:""}<div class="nm">${esc(g.name)}<span>${g.photos?.length||0} photos</span></div></button>`).join("")}</div>`:`<div class="empty">${ready?(lerr||"No galleries yet."):"Loading…"}</div>`}</div>`;
  app.querySelectorAll(".card").forEach(c=>c.onclick=()=>location.hash="g-"+c.dataset.g);tilt()}
 function showGal(id,pid){const g=gals.find(x=>x.id===id);const P=g?.photos||[];
  document.querySelector("#n-gallery").classList.add("on");
@@ -115,7 +121,7 @@ function showGal(id,pid){const g=gals.find(x=>x.id===id);const P=g?.photos||[];
  const rows=$("#rows"),W=Math.min(innerWidth,1200)-(innerWidth<600?24:40),target=innerWidth<600?2.2:3.6;let r=[],sum=0;
  const flush=last=>{if(!r.length)return;const d=document.createElement("div");d.className="row";
   const scale=last&&sum<target*.8?sum/target:1;d.style.width=(scale*100)+"%";
-  r.forEach(p=>{const b=document.createElement("button");b.className="thumb";b.style.flex=(p.w/p.h)+" 1 0";b.style.aspectRatio=p.w/p.h;b.innerHTML=`<img src="${p.url}" loading="lazy" alt="${esc(p.name)}">`;b.onclick=()=>openLb(id,P.indexOf(p));d.appendChild(b)});rows.appendChild(d);r=[];sum=0};
+  r.forEach(p=>{const b=document.createElement("button");b.className="thumb";b.style.flex=(p.w/p.h)+" 1 0";b.style.aspectRatio=p.w/p.h;b.innerHTML=`<img src="${p.th}" loading="lazy" alt="${esc(p.name)}">`;b.onclick=()=>openLb(id,P.indexOf(p));d.appendChild(b)});rows.appendChild(d);r=[];sum=0};
  P.forEach(p=>{r.push(p);sum+=p.w/p.h;if(sum>=target)flush(false)});flush(true);tilt();
  if(pid){const i=P.findIndex(p=>p.id===pid);if(i>=0)openLb(id,i,true)}}
 let lbG="";
@@ -125,8 +131,8 @@ function closeLb(){$("#lb").classList.remove("on");history.replaceState(null,"",
 $("#lx").onclick=closeLb;$("#lp").onclick=()=>{ci=(ci-1+cur.length)%cur.length;paintLb()};$("#ln").onclick=()=>{ci=(ci+1)%cur.length;paintLb()};
 $("#lb").onclick=e=>{if(e.target.classList.contains("im"))closeLb()};
 addEventListener("keydown",e=>{if(!$("#lb").classList.contains("on"))return;if(e.key==="Escape")closeLb();if(e.key==="ArrowLeft")$("#lp").click();if(e.key==="ArrowRight")$("#ln").click()});
-$("#ld").onclick=async()=>{const p=cur[ci];try{const b=await (await fetch(p.url)).blob();const ext=(p.ext||"jpg");
- if(dl){await dl.save({filename:p.name.replace(/[^\w\- ]/g,"")+"."+ext,data:b})}else{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=p.name+"."+ext;document.body.appendChild(a);a.click();a.remove()}}catch(e){if(e&&e.code!=="declined")toast("Download unavailable here")}};
+$("#ld").onclick=async()=>{const p=cur[ci];try{const b=await (await fetch(p.orig)).blob();const ext=(p.ext||"jpg");
+ if(dl){await dl.save({filename:p.name.replace(/[^\w\- ]/g,"")+"."+ext,data:b})}else{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=(p.name||"photo")+"-"+(ci+1)+"."+ext;document.body.appendChild(a);a.click();a.remove()}}catch(e){if(e&&e.code!=="declined")toast("Download unavailable here")}};
 $("#ls").onclick=async()=>{const u=location.href;try{await navigator.clipboard.writeText(u);toast("Photo link copied")}catch(e){prompt("Copy this photo link:",u)}};
 const BOOK="https://brendanmedia.setmore.com/brendan";let bkOpen=false;
 function openBook(e,el){e.preventDefault();const b=$("#bk"),r=el.getBoundingClientRect();
@@ -148,30 +154,19 @@ function rAdmin(){if(!admin){app.innerHTML=`<div class="wrap"><h2>Admin</h2><p c
  app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Welcome back, Brendan.</p><div class="adm"><button class="btn" onclick="location.hash='admin-home'">Customize Home Page Photos</button><button class="btn" onclick="location.hash='admin-gal'">Upload Gallery</button></div><button class="btn sec" id="out">Sign out</button><div id="bk"></div></div>`;
  $("#out").onclick=()=>{admin=false;try{sessionStorage.removeItem("bm_admin")}catch(e){}location.hash="home"};tilt();
  db?.collection("bookings").get().then(s=>{if(!s.size)return;$("#bk").innerHTML="<h2 style='font-size:28px;margin-top:40px'>Booking requests</h2>"+s.docs.map(d=>d.data()).sort((a,b)=>b.at-a.at).map(b=>`<div class="li"><div><b>${esc(b.name)}</b> · ${esc(b.contact)}<br><span style="color:var(--mut)">${esc(b.when||"")} ${esc(b.details||"")}</span></div></div>`).join("")}).catch(()=>{})}
-function guard(){if(!admin){location.hash="admin";return false}if(db&&!assets){app.innerHTML=`<div class="wrap"><div class="empty">You need editor access to upload.</div></div>`;return false}return true}
-function dims(f){return new Promise(r=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{r({w:i.naturalWidth,h:i.naturalHeight});URL.revokeObjectURL(u)};i.onerror=()=>r({w:3,h:2});i.src=u})}
-async function up(files,msg){const out=[];let n=0;for(const f of files){n++;msg.textContent=`Uploading ${n} of ${files.length} (full resolution)…`;
-  try{const d=await dims(f),a=shared()?await assets.upload(f):{id:rid(),url:URL.createObjectURL(f)};out.push({id:a.id,url:a.url,blob:shared()?undefined:f,w:d.w,h:d.h,name:f.name.replace(/\.[^.]+$/,""),ext:(f.name.split(".").pop()||"jpg").toLowerCase()})}catch(e){msg.textContent="Failed on "+f.name+": "+(e.message||e.code||"error");return out}}
- msg.textContent="Done.";return out}
+function guard(){if(!admin){location.hash="admin";return false}return true}
 function rAHome(){if(!guard())return;const s=home.slides||[];
- app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Home page slideshow</h2><p class="sub">Upload one or more photos. They fade in order.</p><div class="ti">${s.map((x,i)=>`<div><img src="${x.url}" alt=""><b data-i="${i}">×</b></div>`).join("")}</div><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div></div>`;
- app.querySelectorAll(".ti b").forEach(b=>b.onclick=async()=>{const n=s.filter((_,i)=>i!==+b.dataset.i);await setHome(n)});
- $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"));if(r.length)await setHome([...s,...r.map(x=>({id:x.id,url:x.url,blob:x.blob}))])}}
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Home page slideshow</h2><p class="sub">Upload one or more photos. They fade in order. To remove one, delete it in Cloudinary → Media Library.</p><div class="ti">${s.map(x=>`<div><img src="${x.th}" alt=""></div>`).join("")}</div><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div></div>`;
+ $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"),"bm/home","bm_home");if(r.length){home.slides=[...s,...r];setTimeout(route,1200)}}}
 function rAGal(){if(!guard())return;
- app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Upload gallery</h2><p class="sub">Name your gallery, then add photos.</p><div class="form"><input id="gn" placeholder="Gallery name"><button class="btn pri" id="gc">Continue to upload</button></div><div id="up"></div><h2 style="font-size:26px;margin-top:48px">Your galleries</h2>${gals.map(g=>`<div class="li"><span>${esc(g.name)} · ${g.photos?.length||0}</span><span><button class="btn sec" data-a="${g.id}">Add photos</button> <button class="btn sec" data-d="${g.id}">Delete</button></span></div>`).join("")||"<p class='sub'>None yet.</p>"}</div>`;
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Upload gallery</h2><p class="sub">Name your gallery, then add photos (hundreds at once is fine).</p><div class="form"><input id="gn" placeholder="Gallery name"><button class="btn pri" id="gc">Continue to upload</button></div><div id="up"></div><h2 style="font-size:26px;margin-top:48px">Your galleries</h2>${gals.map(g=>`<div class="li"><span>${esc(g.name)} · ${g.photos.length}</span><span><button class="btn sec" data-a="${g.id}">Add photos</button></span></div>`).join("")||"<p class='sub'>None yet.</p>"}</div>`;
  const pick=(id,name)=>{$("#up").innerHTML=`<p style="margin-top:24px"><b>${esc(name)}</b></p><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div>`;
-  $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"));if(r.length){const g=gals.find(x=>x.id===id);await saveGal(id,{name,photos:[...(g?.photos||[]),...r],at:g?.at||Date.now()})}}};
- $("#gc").onclick=()=>{const n=$("#gn").value.trim();if(!n)return;pick(rid(),n)};
- app.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const g=gals.find(x=>x.id===b.dataset.a);pick(g.id,g.name)});
- app.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{if(confirm("Delete this gallery?"))delGal(b.dataset.d)});tilt()}
+  $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"),"bm/gal/"+id,"bm_all");if(r.length){build([...gals.flatMap(g=>g.photos),...r]);setTimeout(route,1200)}}};
+ $("#gc").onclick=()=>{const id=$("#gn").value.trim().replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"");if(!id)return;pick(id,nice(id))};
+ app.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>pick(b.dataset.a,nice(b.dataset.a)));tilt()}
 function tilt(){if(!matchMedia("(hover:hover) and (pointer:fine)").matches)return;
  document.querySelectorAll(".btn,.card,.thumb").forEach(el=>{if(el._t)return;el._t=1;el.addEventListener("mousemove",e=>{const r=el.getBoundingClientRect();el.style.setProperty("--ry",((e.clientX-r.left)/r.width-.5)*10+"deg");el.style.setProperty("--rx",(.5-(e.clientY-r.top)/r.height)*10+"deg")});el.addEventListener("mouseleave",()=>{el.style.setProperty("--rx","0deg");el.style.setProperty("--ry","0deg")})})}
 addEventListener("hashchange",()=>{if($("#lb").classList.contains("on")&&!location.hash.startsWith("#p-"))$("#lb").classList.remove("on");route()});
 route();
-(async()=>{try{[db,assets,dl]=await Promise.all([claude.use("db"),claude.use("assets"),claude.use("downloads")])}catch(e){}
- if(!db){loadLocal();return}
- const t=setTimeout(()=>{ready=true;route()},10000);
- db.doc("site/home").onSnapshot(s=>{home=s.data()||{slides:[]};if(/^(#home)?$/.test(location.hash))route();else if(location.hash==="#admin-home")route()},()=>{});
- db.collection("galleries").onSnapshot(s=>{clearTimeout(t);ready=true;gals=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.at||0)-(b.at||0));
-  const h=location.hash;if(!$("#lb").classList.contains("on")&&/^#(gallery|g-|p-|admin-gal)/.test(h)&&!document.activeElement?.type)route()},()=>{ready=true;route()})})();
+load();
 </script></body></html>
