@@ -73,31 +73,42 @@ input:focus,textarea:focus{outline:2px solid var(--blue);border-color:transparen
 <footer><a href="https://www.instagram.com/brendan.media" target="_blank" rel="noopener">Instagram · @brendan.media</a>
 <a class="btn sec" href="#admin">Upload</a>
 <a href="https://thecaesarco.com" target="_blank" rel="noopener" style="margin-left:auto">Powered and designed by TheCaesarCo</a></footer>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
 const $=s=>document.querySelector(s),app=$("#app");
 let db=null,assets=null,dl=null,home={slides:[]},gals=[],admin=false,cur=[],ci=0,timer=null,ready=false;
-try{admin=sessionStorage.getItem("bm_admin")==="1"}catch(e){}
+
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const rid=()=>Math.random().toString(36).slice(2,10);
 const CLOUD="pl9amsir",PRESET="brendanmedia",CDN=`https://res.cloudinary.com/${CLOUD}/image`;
 let lerr="";
 const nice=t=>t.replace(/_/g," ");
-function mk(r){const pid=r.public_id,pt=pid.split("/"),id=pt[pt.length-1],g=pt[0]==="bm"&&pt[1]==="gal"?pt[2]:"",e=`v${r.version}/${pid}.${r.format}`,u=CDN+"/upload";
- return{id,pid,g,w:r.width||3,h:r.height||2,t:Date.parse(r.created_at)||0,name:g?nice(g):"",ext:r.format,url:`${u}/c_limit,w_2200,q_auto,f_auto/${e}`,th:`${u}/c_limit,w_700,q_auto,f_auto/${e}`,orig:`${u}/${e}`}}
-function build(list){const m={};list.forEach(p=>{(m[p.g]=m[p.g]||{id:p.g,name:p.name,photos:[]}).photos.push(p)});
- gals=Object.values(m).map(g=>{g.photos.sort((a,b)=>a.t-b.t);g.at=g.photos[0].t;return g}).sort((a,b)=>a.at-b.at)}
-async function lst(tag){const r=await fetch(`${CDN}/list/${tag}.json`);if(r.status===404)return[];if(!r.ok)throw new Error("list "+r.status);return(await r.json()).resources.map(mk)}
-async function load(){lerr="";try{const[h,g]=await Promise.all([lst("bm_home"),lst("bm_all")]);home={slides:h.sort((a,b)=>a.t-b.t)};build(g)}
- catch(e){lerr="Couldn't load photos. In Cloudinary go to Settings → Security and turn off the “Resource list” restriction."}
- ready=true;route()}
+function ph(c,g){const u=CDN+"/upload",e=`v${c.v}/${c.pid}.${c.f}`;
+ return{id:c.id,pid:c.pid,w:c.w||3,h:c.h||2,ext:c.f,name:g||"",url:`${u}/c_limit,w_2200,q_auto,f_auto/${e}`,th:`${u}/c_limit,w_700,q_auto,f_auto/${e}`,orig:`${u}/${e}`}}
+const FB={apiKey:"AIzaSyCGuulTb41T-0FybfuX1gsKqnVRcfP0qII",authDomain:"media-6040a.firebaseapp.com",projectId:"media-6040a",appId:"1:221787297607:web:272828ecacfe2035459e62"};
+let fs=null,auth=null,hraw=[];
+const FV=()=>firebase.firestore.FieldValue;
+function refresh(){if($("#lb").classList.contains("on")||/^#admin-/.test(location.hash))return;route()}
+function start(){
+ if(FB.apiKey.startsWith("PASTE")){lerr="Firebase isn't connected yet. Paste your firebaseConfig into the page.";ready=true;route();return}
+ firebase.initializeApp(FB);auth=firebase.auth();fs=firebase.firestore();
+ auth.onAuthStateChanged(u=>{admin=!!u;if(/^#admin/.test(location.hash))route()});
+ const t=setTimeout(()=>{lerr="Couldn't load photos. Check your internet connection.";ready=true;route()},10000);
+ fs.doc("site/home").onSnapshot(s=>{hraw=s.exists?(s.data().slides||[]):[];home={slides:hraw.map(c=>ph(c,""))};refresh()},()=>{});
+ fs.collection("galleries").onSnapshot(s=>{clearTimeout(t);ready=true;lerr="";
+  gals=s.docs.map(d=>{const x=d.data(),r=x.photos||[];return{id:d.id,name:x.name||nice(d.id),at:x.at||0,raw:r,photos:r.map(c=>ph(c,x.name||""))}}).sort((a,b)=>a.at-b.at);refresh()},
+  ()=>{clearTimeout(t);lerr="Couldn't load photos. Check your Firebase rules.";ready=true;route()})}
 async function shrink(f){try{const b=await createImageBitmap(f,{imageOrientation:"from-image"}),k=Math.min(1,3000/Math.max(b.width,b.height));
  if(k===1&&f.size<8e6)return f;const c=document.createElement("canvas");c.width=Math.round(b.width*k);c.height=Math.round(b.height*k);c.getContext("2d").drawImage(b,0,0,c.width,c.height);
  return(await new Promise(r=>c.toBlob(r,"image/jpeg",.9)))||f}catch(e){return f}}
-async function up(files,msg,dir,tag){const out=[],N=files.length;let n=0,fail=0,i=0,err="";
- const w=async()=>{while(i<N){const f=files[i++];try{const b=await shrink(f),fd=new FormData();fd.append("file",b);fd.append("upload_preset",PRESET);fd.append("public_id",dir+"/"+rid()+rid());fd.append("tags",tag);
-  const r=await fetch("https://api.cloudinary.com/v1_1/"+CLOUD+"/image/upload",{method:"POST",body:fd}),j=await r.json();if(!r.ok)throw new Error(j.error?.message||r.status);out.push(mk(j))}catch(e){fail++;err=e.message}
+async function up(files,msg,dir){const res=[],N=files.length;let n=0,fail=0,i=0,err="";
+ const w=async()=>{while(i<N){const k=i++,f=files[k];try{const b=await shrink(f),fd=new FormData();fd.append("file",b);fd.append("upload_preset",PRESET);fd.append("public_id",dir+"/"+rid()+rid());
+  const r=await fetch("https://api.cloudinary.com/v1_1/"+CLOUD+"/image/upload",{method:"POST",body:fd}),j=await r.json();if(!r.ok)throw new Error(j.error?.message||r.status);
+  res[k]={id:rid(),pid:j.public_id,v:j.version,f:j.format,w:j.width,h:j.height}}catch(e){fail++;err=e.message}
   n++;msg.textContent=`Uploaded ${n-fail} of ${N}`+(fail?` (${fail} failed: ${err})`:"")}};
- await Promise.all([w(),w(),w()]);msg.textContent=`Done. ${out.length} uploaded`+(fail?`, ${fail} failed: ${err}`:".");return out}
+ await Promise.all([w(),w(),w()]);const out=res.filter(Boolean);msg.textContent=`Done. ${out.length} uploaded`+(fail?`, ${fail} failed: ${err}`:".");return out}
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");setTimeout(()=>e.classList.remove("on"),2200)}
 function route(){clearInterval(timer);const h=location.hash.slice(1)||"home";
  document.querySelectorAll("nav .btn").forEach(b=>b.classList.remove("on"));
@@ -148,25 +159,30 @@ function rBook(){app.innerHTML=`<div class="wrap"><h2>Book Me</h2><p class="sub"
  $("#bs").onclick=async()=>{const d={name:$("#bn").value.trim(),contact:$("#bc").value.trim(),when:$("#bd").value.trim(),details:$("#bt").value.trim(),at:Date.now()};
   if(!d.name||!d.contact){$("#bm").textContent="Please add your name and contact.";return}
   try{await db.collection("bookings").doc(rid()).set(d);$("#bm").textContent="Thank you! Your request was sent.";["bn","bc","bd","bt"].forEach(i=>$("#"+i).value="")}catch(e){$("#bm").textContent="Couldn't send. Please message me on Instagram."}};tilt()}
-function rAdmin(){if(!admin){app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Sign in to manage your site.</p><div class="form"><input id="au" placeholder="User ID" autocapitalize="off"><input id="ap" type="password" placeholder="Password"><button class="btn pri" id="ab">Sign in</button><div class="msg" id="am"></div></div></div>`;
-  const go=()=>{if($("#au").value.trim()==="brendan.media"&&$("#ap").value==="Inka_2026"){admin=true;try{sessionStorage.setItem("bm_admin","1")}catch(e){}rAdmin()}else $("#am").textContent="Incorrect user ID or password."};
+function rAdmin(){if(!admin){app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Sign in to manage your site.</p><div class="form"><input id="au" type="email" placeholder="Email" autocapitalize="off"><input id="ap" type="password" placeholder="Password"><button class="btn pri" id="ab">Sign in</button><div class="msg" id="am"></div></div></div>`;
+  const go=async()=>{if(!auth){$("#am").textContent=lerr||"Not connected.";return}try{await auth.signInWithEmailAndPassword($("#au").value.trim(),$("#ap").value)}catch(e){$("#am").textContent="Incorrect email or password."}};
   $("#ab").onclick=go;$("#ap").onkeydown=e=>{if(e.key==="Enter")go()};tilt();return}
  app.innerHTML=`<div class="wrap"><h2>Admin</h2><p class="sub">Welcome back, Brendan.</p><div class="adm"><button class="btn" onclick="location.hash='admin-home'">Customize Home Page Photos</button><button class="btn" onclick="location.hash='admin-gal'">Upload Gallery</button></div><button class="btn sec" id="out">Sign out</button><div id="bk"></div></div>`;
- $("#out").onclick=()=>{admin=false;try{sessionStorage.removeItem("bm_admin")}catch(e){}location.hash="home"};tilt();
+ $("#out").onclick=()=>{auth?.signOut();admin=false;location.hash="home"};tilt();
  db?.collection("bookings").get().then(s=>{if(!s.size)return;$("#bk").innerHTML="<h2 style='font-size:28px;margin-top:40px'>Booking requests</h2>"+s.docs.map(d=>d.data()).sort((a,b)=>b.at-a.at).map(b=>`<div class="li"><div><b>${esc(b.name)}</b> · ${esc(b.contact)}<br><span style="color:var(--mut)">${esc(b.when||"")} ${esc(b.details||"")}</span></div></div>`).join("")}).catch(()=>{})}
-function guard(){if(!admin){location.hash="admin";return false}return true}
-function rAHome(){if(!guard())return;const s=home.slides||[];
- app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Home page slideshow</h2><p class="sub">Upload one or more photos. They fade in order. To remove one, delete it in Cloudinary → Media Library.</p><div class="ti">${s.map(x=>`<div><img src="${x.th}" alt=""></div>`).join("")}</div><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div></div>`;
- $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"),"bm/home","bm_home");if(r.length){home.slides=[...s,...r];setTimeout(route,1200)}}}
+function guard(){if(!admin){location.hash="admin";return false}if(!fs){app.innerHTML=`<div class="wrap"><div class="empty">${esc(lerr)}</div></div>`;return false}return true}
+function rAHome(){if(!guard())return;const s=home.slides;
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Home page slideshow</h2><p class="sub">Upload photos. They fade in order. Tap × to remove one.</p><div class="ti">${s.map(x=>`<div><img src="${x.th}" alt=""><b data-i="${x.id}">×</b></div>`).join("")}</div><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div></div>`;
+ app.querySelectorAll(".ti b").forEach(b=>b.onclick=async()=>{await fs.doc("site/home").set({slides:hraw.filter(c=>c.id!==b.dataset.i)});route()});
+ $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"),"bm/home");if(r.length){await fs.doc("site/home").set({slides:[...hraw,...r]});setTimeout(route,900)}}}
 function rAGal(){if(!guard())return;
- app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Upload gallery</h2><p class="sub">Name your gallery, then add photos (hundreds at once is fine).</p><div class="form"><input id="gn" placeholder="Gallery name"><button class="btn pri" id="gc">Continue to upload</button></div><div id="up"></div><h2 style="font-size:26px;margin-top:48px">Your galleries</h2>${gals.map(g=>`<div class="li"><span>${esc(g.name)} · ${g.photos.length}</span><span><button class="btn sec" data-a="${g.id}">Add photos</button></span></div>`).join("")||"<p class='sub'>None yet.</p>"}</div>`;
+ app.innerHTML=`<div class="wrap"><button class="back" onclick="location.hash='admin'">‹ Admin</button><h2>Upload gallery</h2><p class="sub">Name your gallery, then add photos (hundreds at once is fine).</p><div class="form"><input id="gn" placeholder="Gallery name"><button class="btn pri" id="gc">Continue to upload</button></div><div id="up"></div><h2 style="font-size:26px;margin-top:48px">Your galleries</h2>${gals.map(g=>`<div class="li"><span>${esc(g.name)} · ${g.photos.length}</span><span><button class="btn sec" data-a="${g.id}">Add photos</button> <button class="btn sec" data-m="${g.id}">Remove photos</button> <button class="btn sec" data-d="${g.id}">Delete gallery</button></span></div>`).join("")||"<p class='sub'>None yet.</p>"}</div>`;
  const pick=(id,name)=>{$("#up").innerHTML=`<p style="margin-top:24px"><b>${esc(name)}</b></p><input type="file" id="f" accept="image/*" multiple><div class="msg" id="m"></div>`;
-  $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"),"bm/gal/"+id,"bm_all");if(r.length){build([...gals.flatMap(g=>g.photos),...r]);setTimeout(route,1200)}}};
- $("#gc").onclick=()=>{const id=$("#gn").value.trim().replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"");if(!id)return;pick(id,nice(id))};
- app.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>pick(b.dataset.a,nice(b.dataset.a)));tilt()}
+  $("#f").onchange=async e=>{const r=await up([...e.target.files],$("#m"),"bm/gal/"+id);if(r.length){const g=gals.find(x=>x.id===id);await fs.doc("galleries/"+id).set({name,at:g?.at||Date.now(),photos:FV().arrayUnion(...r)},{merge:true});setTimeout(route,900)}}};
+ const manage=id=>{const g=gals.find(x=>x.id===id);$("#up").innerHTML=`<p style="margin-top:24px"><b>${esc(g.name)}</b> · tap × to remove a photo</p><div class="ti">${g.photos.map(p=>`<div><img src="${p.th}" loading="lazy" alt=""><b data-p="${p.id}">×</b></div>`).join("")}</div>`;
+  $("#up").querySelectorAll("b").forEach(b=>b.onclick=async()=>{g.raw=g.raw.filter(c=>c.id!==b.dataset.p);await fs.doc("galleries/"+id).update({photos:g.raw});b.parentElement.remove()})};
+ $("#gc").onclick=()=>{const name=$("#gn").value.trim(),id=name.replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"");if(!id)return;pick(id,gals.find(x=>x.id===id)?.name||name)};
+ app.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>pick(b.dataset.a,gals.find(x=>x.id===b.dataset.a).name));
+ app.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>manage(b.dataset.m));
+ app.querySelectorAll("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Delete this whole gallery?")){await fs.doc("galleries/"+b.dataset.d).delete();setTimeout(route,300)}});tilt()}
 function tilt(){if(!matchMedia("(hover:hover) and (pointer:fine)").matches)return;
  document.querySelectorAll(".btn,.card,.thumb").forEach(el=>{if(el._t)return;el._t=1;el.addEventListener("mousemove",e=>{const r=el.getBoundingClientRect();el.style.setProperty("--ry",((e.clientX-r.left)/r.width-.5)*10+"deg");el.style.setProperty("--rx",(.5-(e.clientY-r.top)/r.height)*10+"deg")});el.addEventListener("mouseleave",()=>{el.style.setProperty("--rx","0deg");el.style.setProperty("--ry","0deg")})})}
 addEventListener("hashchange",()=>{if($("#lb").classList.contains("on")&&!location.hash.startsWith("#p-"))$("#lb").classList.remove("on");route()});
 route();
-load();
+start();
 </script></body></html>
